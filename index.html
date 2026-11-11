@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#14251f">
+  <meta name="description" content="Référentiel personnel de points de livraison et préparation de tournée.">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <title>Delivery Points</title>
+  <style>
+    :root{color-scheme:dark;--bg:#101815;--panel:#19231f;--panel2:#202d27;--line:#304139;--text:#f1f5f2;--muted:#a9b8ae;--green:#9ce2b2;--green2:#244b35;--danger:#ffb4a9}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px system-ui,-apple-system,Segoe UI,sans-serif}
+    button,input{font:inherit}button{cursor:pointer} .app{max-width:720px;margin:auto;padding:16px 14px calc(28px + env(safe-area-inset-bottom))}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:4px 0 18px}
+    h1{font-size:22px;margin:0}h2{font-size:17px;margin:0 0 12px}.sub{color:var(--muted);font-size:13px}
+    .panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;margin:12px 0}
+    .searchwrap{position:relative}.searchrow{display:flex;gap:8px}.searchrow input,.field{width:100%;min-width:0;background:#0e1512;color:var(--text);border:1px solid var(--line);border-radius:11px;padding:13px}
+    button{border:0;border-radius:11px;padding:12px 14px;background:var(--green);color:#102017;font-weight:700}
+    button.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+    button.small{padding:8px 10px;font-size:13px}button:disabled{opacity:.45;cursor:not-allowed}
+    .suggestions{position:absolute;z-index:5;top:calc(100% + 5px);left:0;right:0;background:#25332c;border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 12px 30px #0008}
+    .suggestion{display:block;width:100%;text-align:left;background:transparent;color:var(--text);border-radius:0;border-bottom:1px solid var(--line);font-weight:500;padding:12px}
+    .suggestion:last-child{border:0}.suggestion small{display:block;color:var(--muted);font-weight:400;margin-top:3px}
+    .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.toolbar .grow{flex:1}
+    .business-list,.route-list{display:grid;gap:8px}.item{display:flex;align-items:center;gap:10px;padding:11px;background:var(--panel2);border:1px solid var(--line);border-radius:12px}
+    .item input[type=checkbox]{width:22px;height:22px;accent-color:#9ce2b2;flex:none}.itemmain{min-width:0;flex:1}.itemname{font-weight:650}.itemmeta{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+    .empty{padding:16px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px;font-size:14px}
+    .count{background:var(--green2);color:var(--green);padding:4px 9px;border-radius:99px;font-size:12px;font-weight:700}
+    .routepoint{display:flex;gap:10px;align-items:flex-start}.routepoint .itemmain{flex:1}.routepoint button{flex:none}
+    .hidden{display:none!important}.muted{color:var(--muted)}.notice{font-size:12px;color:var(--muted);line-height:1.45}
+    .modalback{position:fixed;inset:0;background:#0009;z-index:10;display:flex;align-items:flex-end;justify-content:center;padding:12px}
+    .modal{width:min(100%,560px);background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px;max-height:90vh;overflow:auto}
+    .modal label{display:block;font-size:13px;color:var(--muted);margin:10px 0 5px}.modal .field{margin-bottom:4px}
+    .modalactions{display:flex;gap:8px;margin-top:16px}.modalactions>*{flex:1}
+    .toast{position:fixed;bottom:calc(18px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:#e5f7eb;color:#102017;padding:11px 16px;border-radius:99px;font-weight:650;z-index:20;box-shadow:0 8px 30px #0007;max-width:90%;text-align:center}
+    @media(min-width:600px){.app{padding-top:28px}.modalback{align-items:center}}
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div><h1>Delivery Points</h1><div class="sub">Préparer rapidement ta tournée</div></div>
+    <span class="count" id="dateLabel"></span>
+  </header>
+
+  <section class="panel">
+    <h2>1. Ajouter une adresse</h2>
+    <div class="searchwrap">
+      <div class="searchrow">
+        <input id="addressSearch" type="search" autocomplete="off" placeholder="Adresse, rue, entreprise…" aria-label="Rechercher une adresse">
+        <button id="clearSearch" class="secondary" aria-label="Effacer">×</button>
+      </div>
+      <div id="suggestions" class="suggestions hidden"></div>
+    </div>
+    <p class="notice">Choisis une suggestion pour ajouter un point à la tournée. Tu pourras ensuite corriger ses coordonnées GPS si nécessaire.</p>
+  </section>
+
+  <section class="panel">
+    <div class="toolbar">
+      <h2 class="grow">2. Entreprises habituelles</h2>
+      <span class="count" id="businessCount">0</span>
+    </div>
+    <input id="businessFilter" class="field" type="search" placeholder="Filtrer les entreprises…" aria-label="Filtrer les entreprises">
+    <div id="businessList" class="business-list" style="margin-top:10px"></div>
+    <div class="toolbar" style="margin-top:12px">
+      <button id="addSelected" class="grow">Ajouter la sélection à la tournée</button>
+      <button id="newBusiness" class="secondary small">+ Entreprise</button>
+    </div>
+    <p class="notice">Les entreprises cochées sont ajoutées à la tournée du jour. Les points déjà présents ne sont pas ajoutés deux fois.</p>
+  </section>
+
+  <section class="panel">
+    <div class="toolbar">
+      <h2 class="grow">3. Ma tournée</h2>
+      <span class="count" id="routeCount">0 point</span>
+    </div>
+    <div id="routeList" class="route-list"></div>
+    <div class="toolbar" style="margin-top:12px">
+      <button id="exportRoute" class="grow">Exporter la tournée CSV</button>
+      <button id="newDay" class="secondary small">Nouvelle tournée</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="toolbar">
+      <h2 class="grow">Sauvegarde</h2>
+      <button id="exportData" class="secondary small">Exporter JSON</button>
+      <button id="importData" class="secondary small">Importer</button>
+      <input id="importFile" type="file" accept="application/json,.json" class="hidden">
+    </div>
+    <p class="notice">Les données restent sur cet appareil. Exporte régulièrement le fichier JSON pour ne pas perdre ton référentiel si tu changes de téléphone ou de navigateur.</p>
+  </section>
+  <p class="notice">Recherche d'adresses : Géoplateforme IGN. Les suggestions nécessitent une connexion Internet. Attribution : © IGN / Géoplateforme. Cette application n'est pas affiliée à ton employeur.</p>
+</div>
+
+<div id="modalBack" class="modalback hidden">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <h2 id="modalTitle">Modifier le point</h2>
+    <label for="pointName">Nom / libellé</label><input id="pointName" class="field">
+    <label for="pointAddress">Adresse</label><input id="pointAddress" class="field">
+    <div class="toolbar">
+      <div class="grow"><label for="pointLat">Latitude</label><input id="pointLat" class="field" inputmode="decimal"></div>
+      <div class="grow"><label for="pointLon">Longitude</label><input id="pointLon" class="field" inputmode="decimal"></div>
+    </div>
+    <label for="pointNotes">Consignes (entrée, quai, réception…)</label><textarea id="pointNotes" class="field" rows="3"></textarea>
+    <div class="modalactions">
+      <button id="savePoint">Enregistrer</button><button id="cancelModal" class="secondary">Annuler</button>
+    </div>
+  </div>
+</div>
+<div id="toast" class="toast hidden" role="status"></div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const STORAGE_KEY = "deliveryPoints.v1";
+  const today = () => new Date().toLocaleDateString("fr-FR");
+  let state = loadState();
+  let selectedBusinesses = new Set();
+  let editing = null;
+  let searchTimer = null, activeController = null, toastTimer = null;
+
+  function loadState() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+      return { businesses: Array.isArray(saved.businesses) ? saved.businesses : [],
+        route: saved.routeDate === today() && Array.isArray(saved.route) ? saved.route : [],
+        routeDate: saved.routeDate === today() ? saved.routeDate : today() };
+    } catch { return { businesses: [], route: [], routeDate: today() }; }
+  }
+  function persist() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+  function uid() { return crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random(); }
+  function clean(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+  function toast(message) {
+    $("toast").textContent = message; $("toast").classList.remove("hidden");
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => $("toast").classList.add("hidden"), 2300);
+  }
+  function normalized(s) { return String(s || "").trim().toLocaleLowerCase("fr"); }
+  function coordsKey(p) { return p.lat != null && p.lon != null ? `${Number(p.lat).toFixed(5)},${Number(p.lon).toFixed(5)}` : normalized(p.address); }
+  function isInRoute(p) { return state.route.some(x => x.id === p.id || coordsKey(x) === coordsKey(p)); }
+
+  function renderBusinesses() {
+    const filter = normalized($("businessFilter").value);
+    const list = state.businesses.filter(b => normalized(b.name + " " + b.address).includes(filter));
+    $("businessCount").textContent = `${state.businesses.length}`;
+    $("businessList").innerHTML = list.length ? list.map(b => `
+      <label class="item">
+        <input type="checkbox" data-business="${clean(b.id)}" ${selectedBusinesses.has(b.id) ? "checked" : ""}>
+        <span class="itemmain"><span class="itemname">${clean(b.name)}</span><br><span class="itemmeta">${clean(b.address)}</span></span>
+        ${isInRoute(b) ? '<span class="count">Ajouté</span>' : ''}
+        <button type="button" class="secondary small edit-business" data-edit="${clean(b.id)}">✎</button>
+      </label>`).join("") : `<div class="empty">${state.businesses.length ? "Aucun résultat." : "Aucune entreprise enregistrée. Utilise « + Entreprise » pour commencer."}</div>`;
+    $("businessList").querySelectorAll("[data-business]").forEach(el => el.addEventListener("change", () => {
+      el.checked ? selectedBusinesses.add(el.dataset.business) : selectedBusinesses.delete(el.dataset.business);
+    }));
+    $("businessList").querySelectorAll("[data-edit]").forEach(el => el.addEventListener("click", e => {
+      e.preventDefault(); e.stopPropagation(); openEditor(state.businesses.find(b => b.id === el.dataset.edit), "business");
+    }));
+  }
+
+  function renderRoute() {
+    $("routeCount").textContent = `${state.route.length} point${state.route.length > 1 ? "s" : ""}`;
+    $("routeList").innerHTML = state.route.length ? state.route.map((p,i) => `
+      <div class="item routepoint">
+        <span class="count">${i+1}</span>
+        <span class="itemmain"><span class="itemname">${clean(p.name || p.address)}</span><br><span class="itemmeta">${clean(p.address)}${p.lat != null ? ` · ${Number(p.lat).toFixed(5)}, ${Number(p.lon).toFixed(5)}` : ""}</span>${p.notes ? `<br><span class="itemmeta">📝 ${clean(p.notes)}</span>` : ""}</span>
+        <button class="secondary small" data-route-edit="${clean(p.id)}" aria-label="Modifier">✎</button>
+        <button class="secondary small" data-route-remove="${clean(p.id)}" aria-label="Retirer">×</button>
+      </div>`).join("") : `<div class="empty">Ta tournée est vide. Ajoute une adresse ou coche tes entreprises habituelles.</div>`;
+    $("routeList").querySelectorAll("[data-route-edit]").forEach(el => el.addEventListener("click", () => openEditor(state.route.find(p=>p.id===el.dataset.routeEdit), "route")));
+    $("routeList").querySelectorAll("[data-route-remove]").forEach(el => el.addEventListener("click", () => {
+      state.route = state.route.filter(p => p.id !== el.dataset.routeRemove); persist(); renderAll();
+    }));
+  }
+  function renderAll() { renderBusinesses(); renderRoute(); $("dateLabel").textContent = today(); }
+
+  function addToRoute(point) {
+    if (isInRoute(point)) { toast("Ce point est déjà dans la tournée."); return; }
+    state.route.push({...point, id: point.id || uid()}); persist(); renderAll(); toast("Point ajouté à la tournée.");
+  }
+  function addSelected() {
+    const chosen = state.businesses.filter(b => selectedBusinesses.has(b.id));
+    if (!chosen.length) { toast("Coche au moins une entreprise."); return; }
+    let added = 0;
+    chosen.forEach(b => { if (!isInRoute(b)) { state.route.push({...b, id: uid(), sourceBusinessId:b.id}); added++; } });
+    selectedBusinesses.clear(); persist(); renderAll(); toast(`${added} point${added>1?"s":""} ajouté${added>1?"s":""}.`);
+  }
+
+  function parseSuggestion(item) {
+    const props = item.properties || item;
+    const coords = item.geometry?.coordinates || item.coordinates || [];
+    const text = props.fulltext || props.fullText || props.text || props.label || props.name || item.fulltext || item.text || "";
+    const x = props.x ?? props.lon ?? coords[0], y = props.y ?? props.lat ?? coords[1];
+    return { name: props.name || props.poiName || text, address: text, lat: Number.isFinite(Number(y)) ? Number(y) : null, lon: Number.isFinite(Number(x)) ? Number(x) : null };
+  }
+  function getSuggestions(data) {
+    if (Array.isArray(data)) return data;
+    return data.completion || data.suggestions || data.results || data.features || data.items || [];
+  }
+  async function searchAddress(query) {
+    if (activeController) activeController.abort();
+    activeController = new AbortController();
+    const url = new URL("https://data.geopf.fr/geocodage/completion/");
+    url.searchParams.set("text", query);
+    url.searchParams.set("terr", "METROPOLE");
+    url.searchParams.set("type", "StreetAddress,PositionOfInterest");
+    url.searchParams.set("maximumResponses", "7");
+    try {
+      const response = await fetch(url, {signal: activeController.signal});
+      if (!response.ok) throw new Error("Service indisponible");
+      const data = await response.json();
+      const suggestions = getSuggestions(data).map(parseSuggestion).filter(x => x.address);
+      showSuggestions(suggestions);
+    } catch (e) {
+      if (e.name !== "AbortError") { $("suggestions").innerHTML = `<div class="suggestion">Recherche indisponible. Vérifie ta connexion.</div>`; $("suggestions").classList.remove("hidden"); }
+    }
+  }
+  function showSuggestions(items) {
+    const box = $("suggestions");
+    box.innerHTML = items.length ? items.map((p,i) => `<button class="suggestion" data-suggestion="${i}">${clean(p.address)}<small>${p.lat != null ? `${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}` : "Coordonnées à vérifier"}</small></button>`).join("") : `<div class="suggestion">Aucune suggestion trouvée.</div>`;
+    box.classList.remove("hidden");
+    box.querySelectorAll("[data-suggestion]").forEach(el => el.addEventListener("click", () => {
+      const point = items[Number(el.dataset.suggestion)];
+      $("addressSearch").value = ""; box.classList.add("hidden");
+      openEditor({...point, name:point.name || point.address, notes:""}, "new-route");
+    }));
+  }
+
+  function openEditor(point, mode) {
+    editing = {point, mode};
+    $("modalTitle").textContent = mode === "business" ? "Modifier une entreprise" : mode === "new-business" ? "Nouvelle entreprise" : mode === "new-route" ? "Ajouter à la tournée" : "Modifier le point";
+    $("pointName").value = point?.name || "";
+    $("pointAddress").value = point?.address || "";
+    $("pointLat").value = point?.lat ?? "";
+    $("pointLon").value = point?.lon ?? "";
+    $("pointNotes").value = point?.notes || "";
+    $("modalBack").classList.remove("hidden");
+    $("pointName").focus();
+  }
+  function closeEditor() { $("modalBack").classList.add("hidden"); editing = null; }
+  function saveEditor() {
+    if (!editing) return;
+    const name = $("pointName").value.trim(), address = $("pointAddress").value.trim();
+    const latRaw = $("pointLat").value.trim().replace(",", "."), lonRaw = $("pointLon").value.trim().replace(",", ".");
+    const lat = latRaw === "" ? null : Number(latRaw), lon = lonRaw === "" ? null : Number(lonRaw);
+    if (!address) { toast("L'adresse est obligatoire."); return; }
+    if ((lat !== null && (!Number.isFinite(lat) || lat < -90 || lat > 90)) || (lon !== null && (!Number.isFinite(lon) || lon < -180 || lon > 180))) { toast("Coordonnées GPS invalides."); return; }
+    const p = {...editing.point, name:name || address, address, lat, lon, notes:$("pointNotes").value.trim()};
+    if (editing.mode === "business" || editing.mode === "new-business") {
+      if (editing.mode === "new-business") p.id = uid();
+      const idx = state.businesses.findIndex(b => b.id === p.id);
+      if (idx >= 0) state.businesses[idx] = p; else state.businesses.push(p);
+      persist(); closeEditor(); renderAll(); toast("Entreprise enregistrée.");
+    } else if (editing.mode === "new-route") {
+      closeEditor(); addToRoute({...p,id:uid()});
+    } else {
+      const idx = state.route.findIndex(x => x.id === p.id);
+      if (idx >= 0) state.route[idx] = p;
+      const bidx = state.businesses.findIndex(x => x.id === p.sourceBusinessId || x.id === p.id);
+      if (bidx >= 0) state.businesses[bidx] = {...state.businesses[bidx], name:p.name,address:p.address,lat:p.lat,lon:p.lon,notes:p.notes};
+      persist(); closeEditor(); renderAll(); toast("Point modifié.");
+    }
+  }
+
+  function download(filename, content, type) {
+    const blob = new Blob([content], {type}), url = URL.createObjectURL(blob), a = document.createElement("a");
+    a.href=url; a.download=filename; a.click(); URL.revokeObjectURL(url);
+  }
+  function csvCell(v) { return `"${String(v ?? "").replace(/"/g,'""')}"`; }
+  $("addressSearch").addEventListener("input", e => {
+    const q = e.target.value.trim(); clearTimeout(searchTimer);
+    if (q.length < 3) { $("suggestions").classList.add("hidden"); return; }
+    searchTimer = setTimeout(() => searchAddress(q), 320);
+  });
+  $("clearSearch").addEventListener("click", () => { $("addressSearch").value=""; $("suggestions").classList.add("hidden"); $("addressSearch").focus(); });
+  document.addEventListener("click", e => { if (!e.target.closest(".searchwrap")) $("suggestions").classList.add("hidden"); });
+  $("businessFilter").addEventListener("input", renderBusinesses);
+  $("addSelected").addEventListener("click", addSelected);
+  $("newBusiness").addEventListener("click", () => openEditor({name:"",address:"",lat:null,lon:null,notes:""},"new-business"));
+  $("savePoint").addEventListener("click", saveEditor);
+  $("cancelModal").addEventListener("click", closeEditor);
+  $("modalBack").addEventListener("click", e => { if (e.target === $("modalBack")) closeEditor(); });
+  $("exportRoute").addEventListener("click", () => {
+    if (!state.route.length) { toast("La tournée est vide."); return; }
+    const rows = [["Nom","Adresse","Latitude","Longitude","Consignes"], ...state.route.map(p=>[p.name,p.address,p.lat,p.lon,p.notes])];
+    download(`tournee-${new Date().toISOString().slice(0,10)}.csv`, "\uFEFF"+rows.map(r=>r.map(csvCell).join(";")).join("\n"), "text/csv;charset=utf-8");
+  });
+  $("newDay").addEventListener("click", () => {
+    if (state.route.length && !confirm("Effacer la tournée actuelle ? Le référentiel des entreprises sera conservé.")) return;
+    state.route=[]; state.routeDate=today(); persist(); renderAll(); toast("Nouvelle tournée prête.");
+  });
+  $("exportData").addEventListener("click", () => download("delivery-points-backup.json", JSON.stringify({businesses:state.businesses},null,2), "application/json"));
+  $("importData").addEventListener("click", () => $("importFile").click());
+  $("importFile").addEventListener("change", async e => {
+    const file=e.target.files[0]; if(!file)return;
+    try {
+      const data=JSON.parse(await file.text());
+      if(!Array.isArray(data.businesses)) throw new Error();
+      const map=new Map(state.businesses.map(b=>[b.id,b]));
+      data.businesses.forEach(b=>{ if(b.address) map.set(b.id || uid(), {...b,id:b.id||uid()}); });
+      state.businesses=[...map.values()]; persist(); renderAll(); toast("Référentiel importé.");
+    } catch { toast("Fichier JSON invalide."); }
+    e.target.value="";
+  });
+
+  if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+    window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+  }
+  renderAll();
+})();
+</script>
+</body>
+</html>
